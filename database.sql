@@ -1,0 +1,94 @@
+CREATE DATABASE IF NOT EXISTS kasuwalink CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE kasuwalink;
+CREATE TABLE IF NOT EXISTS users (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ business_name VARCHAR(150) NOT NULL,
+ full_name VARCHAR(120) NOT NULL,
+ email VARCHAR(190) NOT NULL UNIQUE,
+ password_hash VARCHAR(255) NOT NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS products (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ name VARCHAR(160) NOT NULL,
+ sku VARCHAR(80) NULL,
+ cost_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+ selling_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+ quantity INT NOT NULL DEFAULT 0,
+ low_stock_threshold INT NOT NULL DEFAULT 5,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE KEY unique_user_sku (user_id, sku),
+ CONSTRAINT fk_products_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS customers (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ name VARCHAR(140) NOT NULL,
+ phone VARCHAR(40) NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT fk_customers_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS sales (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ customer_id BIGINT UNSIGNED NULL,
+ total DECIMAL(12,2) NOT NULL,
+ amount_paid DECIMAL(12,2) NOT NULL,
+ payment_method ENUM('cash','transfer','pos','credit','other') NOT NULL DEFAULT 'cash',
+ notes VARCHAR(255) NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT fk_sales_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+ CONSTRAINT fk_sales_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS sale_items (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ sale_id BIGINT UNSIGNED NOT NULL,
+ product_id BIGINT UNSIGNED NOT NULL,
+ product_name VARCHAR(160) NOT NULL,
+ quantity INT NOT NULL,
+ unit_price DECIMAL(12,2) NOT NULL,
+ unit_cost DECIMAL(12,2) NOT NULL,
+ CONSTRAINT fk_items_sale FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
+ CONSTRAINT fk_items_product FOREIGN KEY (product_id) REFERENCES products(id)
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS expenses (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ title VARCHAR(160) NOT NULL,
+ amount DECIMAL(12,2) NOT NULL,
+ expense_date DATE NOT NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT fk_expenses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS debt_payments (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ sale_id BIGINT UNSIGNED NOT NULL,
+ amount DECIMAL(12,2) NOT NULL,
+ note VARCHAR(255) NULL,
+ paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ CONSTRAINT fk_debtpay_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+ CONSTRAINT fk_debtpay_sale FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+
+-- Phase 3: inventory movement audit ledger. Run once on an existing database.
+CREATE TABLE IF NOT EXISTS inventory_movements (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ user_id BIGINT UNSIGNED NOT NULL,
+ product_id BIGINT UNSIGNED NULL,
+ product_name VARCHAR(160) NOT NULL,
+ movement_type VARCHAR(32) NOT NULL,
+ quantity_change INT NOT NULL,
+ quantity_before INT NOT NULL,
+ quantity_after INT NOT NULL,
+ reference_type VARCHAR(32) NULL,
+ reference_id BIGINT UNSIGNED NULL,
+ note VARCHAR(255) NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ KEY idx_inventory_user_date (user_id, created_at),
+ KEY idx_inventory_product_date (product_id, created_at),
+ CONSTRAINT fk_inventory_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+ CONSTRAINT fk_inventory_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
